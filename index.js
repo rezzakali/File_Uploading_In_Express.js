@@ -1,80 +1,42 @@
 /* eslint-disable prettier/prettier */
 const express = require('express');
-const multer = require('multer');
-const path = require('path');
+const mongoose = require('mongoose');
+const todoHandler = require('./handler/todoHandler');
 
+// creating the express app
+const app = express();
+app.use(express.json());
+
+// configuration
 const hostname = '127.0.0.1';
 const port = 3000;
-const app = express();
-const uploadFile = './Files';
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadFile);
-  },
-  filename: (req, file, cb) => {
-    const fileExt = path.extname(file.originalname);
-    const fileName = `${file.originalname
-      .replace(fileExt, '')
-      .toLowerCase()
-      .split(' ')
-      .join('-')}-${Date.now()}`;
-    cb(null, fileName + fileExt);
-  },
+// database connection
+mongoose
+  .connect('mongodb://localhost/todo')
+  .then(() => {
+    console.log('connection successfully established');
+  })
+  .catch((err) => console.log(err.message));
+// calling the app to use the todoHandler
+app.use('/todo', todoHandler);
+
+// simple route
+app.get('/', (req, res) => {
+  res.send('Home Page');
 });
-
-const uploads = multer({
-  storage,
-  limits: {
-    fileSize: 1000000, // 1MB
-  },
-  fileFilter: (req, file, cb) => {
-    if (file.fieldname === 'avatar') {
-      if (
-        file.mimetype === 'image/png' ||
-        file.mimetype === 'image/jpeg' ||
-        file.mimetype === 'image/jpg'
-      ) {
-        cb(null, true);
-      } else {
-        cb(new Error('Only .jpg , .png or .jpeg format allowed!'));
-      }
-    } else if (file.fieldname === 'docs') {
-      if (file.mimetype === 'application/pdf') {
-        cb(null, true);
-      } else {
-        cb(new Error('Only .pdf format allowed!'));
-      }
-    }
-  },
-});
-
-app.post(
-  '/',
-  uploads.fields([
-    { name: 'avatar', maxCount: 1 },
-    { name: 'docs', maxCount: 1 },
-  ]),
-  (req, res) => {
-    console.log(req.files);
-    res.send('Home Page');
-  }
-);
-
+// error handling
+// eslint-disable-next-line consistent-return
 app.use((err, req, res, next) => {
-  if (err) {
-    if (err instanceof multer.MulterError) {
-      res.status(500).send(err.message);
-    } else {
-      res.status(500).send(err.message);
-    }
-  } else {
-    res.send('success');
+  if (res.headerSent) {
+    return next(err);
   }
+  res.status(500).json({ message: err.message });
 });
 
+// listening the server
 app.listen(port, hostname, () => {
   console.log(
-    `your server is running successfully at http://${hostname}:${port}`
+    `Your server is running successfully at http://${hostname}:${port}`
   );
 });
